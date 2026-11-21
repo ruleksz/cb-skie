@@ -148,6 +148,18 @@ export function createRepository(pool) {
       return result.insertId;
     },
 
+    /** Menghapus pertanyaan terakhir (dan jawaban sesudahnya) bila isinya sama dengan `content`. */
+    async deleteLastTurn(conversationId, content) {
+      const [[last]] = await pool.query(
+        `SELECT id, content FROM messages
+          WHERE conversation_id = ? AND role = 'user' ORDER BY id DESC LIMIT 1`,
+        [conversationId],
+      );
+      if (!last || last.content !== content) return false;
+      await pool.query('DELETE FROM messages WHERE conversation_id = ? AND id >= ?', [conversationId, last.id]);
+      return true;
+    },
+
     async getMessages(conversationId, { limit } = {}) {
       const [rows] = limit
         ? await pool.query(

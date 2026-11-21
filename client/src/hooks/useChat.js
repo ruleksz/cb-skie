@@ -109,10 +109,12 @@ export function useChat() {
       setStatus('streaming');
 
       let conversationId = activeId;
+      let completed = false;
       try {
         for await (const { event, data } of api.streamChat({
           message,
           conversationId,
+          retry,
           signal: controller.signal,
         })) {
           if (runRef.current !== run) return;
@@ -128,6 +130,8 @@ export function useChat() {
             patchReply((item) => ({ content: item.content + data.text }));
           } else if (event === 'error') {
             patchReply(() => ({ error: data.message }));
+          } else if (event === 'done') {
+            completed = true;
           }
         }
       } catch (error) {
@@ -138,7 +142,13 @@ export function useChat() {
       if (runRef.current !== run) return;
       patchReply((item) => ({
         pending: false,
-        error: item.error ?? (!item.content && !item.stopped ? 'Server tidak mengirim jawaban.' : undefined),
+        error:
+          item.error ??
+          (completed || item.stopped
+            ? undefined
+            : item.content
+              ? 'Koneksi terputus sebelum jawaban selesai. Jawaban ini mungkin tidak tersimpan.'
+              : 'Server tidak mengirim jawaban.'),
       }));
       abortRef.current = null;
       setStatus('idle');

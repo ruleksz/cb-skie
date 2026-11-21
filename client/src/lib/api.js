@@ -57,11 +57,15 @@ export async function deleteConversation(id) {
 }
 
 /** Mengirim pesan dan menghasilkan event SSE: meta, token, error, done. */
-export async function* streamChat({ message, conversationId, signal }) {
+export async function* streamChat({ message, conversationId, retry = false, signal }) {
   const response = await request('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ message, conversationId: conversationId ?? undefined }),
+    body: JSON.stringify({
+      message,
+      conversationId: conversationId ?? undefined,
+      retry: (retry && Boolean(conversationId)) || undefined,
+    }),
     signal,
   });
   yield* readSse(response.body);

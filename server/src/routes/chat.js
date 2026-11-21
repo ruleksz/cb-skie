@@ -81,6 +81,9 @@ export function chatRouter({ repo, retriever, llm }) {
       });
     }
 
+    // Coba lagi: giliran terakhir yang gagal diganti, bukan ditumpuk di riwayat.
+    if (requestedId && req.body?.retry === true) await repo.deleteLastTurn(conversation.id, message);
+
     const history = await repo.getMessages(conversation.id, { limit: HISTORY_LIMIT });
     await repo.addMessage({ conversationId: conversation.id, role: 'user', content: message });
 
@@ -101,10 +104,15 @@ export function chatRouter({ repo, retriever, llm }) {
 
     let answer = '';
     let sources = [];
+    let metaSent = false;
+    const sendMeta = () => {
+      send('meta', { conversationId: conversation.id, title: conversation.title, sources });
+      metaSent = true;
+    };
     try {
       const searchQuery = await toStandaloneQuestion(message, history, abort.signal);
       sources = (await retriever.retrieve(searchQuery)).map(toPublicSource);
-      send('meta', { conversationId: conversation.id, title: conversation.title, sources });
+      sendMeta();
 
       const messages = buildChatMessages({
         question: message,
@@ -117,6 +125,8 @@ export function chatRouter({ repo, retriever, llm }) {
       }
       if (!answer.trim()) throw new Error('Model tidak mengembalikan jawaban.');
     } catch (error) {
+      // Klien tetap perlu tahu id percakapan agar pesan berikutnya masuk ke percakapan yang sama.
+      if (!metaSent) sendMeta();
       if (!abort.signal.aborted) {
         console.error('[chat] gagal menjawab:', error.message);
         send('error', {
@@ -130,14 +140,19 @@ export function chatRouter({ repo, retriever, llm }) {
 
     // Jawaban yang terpotong (dihentikan pengguna atau galat di tengah) tetap disimpan agar riwayat konsisten.
     if (answer.trim()) {
-      const messageId = await repo.addMessage({
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: answer,
-        sources,
-      });
-      await repo.touchConversation(conversation.id);
-      send('done', { messageId });
+      try {
+        const messageId = await repo.addMessage({
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: answer,
+          sources,
+        });
+        await repo.touchConversation(conversation.id);
+        send('done', { messageId });
+      } catch (error) {
+        console.error('[chat] gagal menyimpan jawaban:', error.message);
+        send('error', { message: 'Jawaban tidak dapat disimpan ke riwayat percakapan.' });
+      }
     }
     res.end();
   });
