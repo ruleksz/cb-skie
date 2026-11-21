@@ -35,10 +35,18 @@ embedder.warmup().catch((error) => {
   console.error('Gagal memuat model embedding:', error.message);
 });
 
-async function shutdown() {
-  server.close();
-  await pool.end().catch(() => {});
-  process.exit(0);
+const SHUTDOWN_TIMEOUT_MS = 15_000;
+let shuttingDown = false;
+
+// Jawaban yang sedang dialirkan diberi waktu untuk selesai dan tersimpan sebelum proses berhenti.
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS).unref();
+  server.close(async () => {
+    await pool.end().catch(() => {});
+    process.exit(0);
+  });
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
