@@ -1,0 +1,225 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  color-scheme: light;
+  --canvas: #f6f6f3;
+  --surface: #ffffff;
+  --raised: #eeeeea;
+  --line: #e2e2dc;
+  --ink: #1a1d1f;
+  --soft: #555d63;
+  --faint: #8a9197;
+  --accent: #2c7a6e;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2efec;
+  --danger: #b4483c;
+  --danger-soft: #f8e9e6;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #0d0f11;
+  --surface: #131618;
+  --raised: #1b1f22;
+  --line: #24292d;
+  --ink: #e8eaeb;
+  --soft: #a3abb1;
+  --faint: #6b747b;
+  --accent: #6fb8ab;
+  --accent-ink: #0b1513;
+  --accent-soft: #15231f;
+  --danger: #e08a7d;
+  --danger-soft: #2a1815;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Sora Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --animate-rise: rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-caret: caret 1s steps(2, start) infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes caret {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button:not(:disabled),
+  [role='button'] {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Isi jawaban Markdown */
+.md {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.md > * + * {
+  margin-top: 0.85em;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin-top: 1.4em;
+}
+.md h1 {
+  font-size: 1.2rem;
+}
+.md h2 {
+  font-size: 1.1rem;
+}
+.md h3,
+.md h4 {
+  font-size: 1rem;
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md strong {
+  font-weight: 600;
+}
+.md a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.md ul,
+.md ol {
+  padding-left: 1.3em;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li + li {
+  margin-top: 0.3em;
+}
+.md li::marker {
+  color: var(--faint);
+}
+.md blockquote {
+  border-left: 2px solid var(--line);
+  padding-left: 1em;
+  color: var(--soft);
+}
+.md hr {
+  border-color: var(--line);
+}
+.md code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  padding: 0.1em 0.35em;
+}
+.md pre {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+}
+.md pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.md .table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.md th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--raised);
+}
+.md th,
+.md td {
+  padding: 0.55em 0.85em;
+  border-bottom: 1px solid var(--line);
+}
+.md tr:last-child td {
+  border-bottom: 0;
+}
+.md-streaming > p:last-child::after,
+.md-streaming > :is(ul, ol):last-child > li:last-child::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: -0.15em;
+  background: var(--accent);
+  animation: var(--animate-caret);
+}
