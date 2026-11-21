@@ -1,7 +1,8 @@
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
 function splitLongParagraph(paragraph, maxChars) {
-  const sentences = paragraph.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) ?? [paragraph];
+  // Titik di dalam angka atau singkatan ("10.000", "No.1") bukan akhir kalimat: hanya pecah bila diikuti spasi.
+  const sentences = paragraph.split(/(?<=[.!?]\s+)/);
   const parts = [];
   let current = '';
   for (const sentence of sentences) {

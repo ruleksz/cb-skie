@@ -51,3 +51,12 @@ test('teks embedding menyertakan judul dan heading', () => {
     'Dota 2 — Posisi\nCarry.',
   );
 });
+
+test('titik di dalam angka tidak membuang teks saat paragraf panjang dipecah', () => {
+  const paragraph =
+    'Pada 1980 Atari menggelar kejuaraan dengan lebih dari 10.000 peserta. ' +
+    'Hadiah turnamen modern mencapai US$ 40.018.195 pada 2021. '.repeat(6).trim();
+  const { chunks } = chunkMarkdown(`# T\n\n${paragraph}`, { maxChars: 150 });
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks.map((chunk) => chunk.content).join(' '), paragraph);
+});

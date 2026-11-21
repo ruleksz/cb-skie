@@ -151,3 +151,48 @@ test('endpoint API yang tidak ada mengembalikan 404 JSON', async () => {
   assert.equal(res.status, 404);
   assert.ok(res.body.error);
 });
+
+test('coba lagi mengganti giliran yang gagal, bukan menumpuknya', async () => {
+  const { app, repo } = setup();
+  const { conversationId } = parseSse((await chat(app, { message: 'Apa itu esports?' })).text)[0].data;
+  await chat(app, { message: 'Siapa Faker?', conversationId });
+  await chat(app, { message: 'Siapa Faker?', conversationId, retry: true });
+
+  const saved = await repo.getMessages(conversationId);
+  assert.deepEqual(saved.map((message) => [message.role, message.content.trim()]), [
+    ['user', 'Apa itu esports?'],
+    ['assistant', 'Jawaban uji.'],
+    ['user', 'Siapa Faker?'],
+    ['assistant', 'Jawaban uji.'],
+  ]);
+
+  await chat(app, { message: 'Pertanyaan lain', conversationId, retry: true });
+  assert.equal((await repo.getMessages(conversationId)).length, 6, 'pesan berbeda tidak menghapus apa pun');
+});
+
+test('pencarian gagal tetap mengirim id percakapan lewat meta', async () => {
+  const { repo } = setup();
+  const failing = createApp({
+    repo,
+    retriever: { retrieve: async () => Promise.reject(new Error('embedding mati')) },
+    llm: createFakeLlm(),
+    config: testConfig,
+    staticDir: null,
+  });
+  const events = parseSse((await chat(failing, { message: 'Apa itu esports?' })).text);
+  assert.deepEqual(events.map((event) => event.event), ['meta', 'error']);
+  assert.ok(repo.conversations.has(events[0].data.conversationId));
+  assert.deepEqual(events[0].data.sources, []);
+});
+
+test('gagal menyimpan jawaban dilaporkan sebagai event error, bukan done', async () => {
+  const { app, repo } = setup();
+  const addMessage = repo.addMessage;
+  repo.addMessage = async (message) => {
+    if (message.role === 'assistant') throw new Error('MySQL putus');
+    return addMessage(message);
+  };
+  const events = parseSse((await chat(app, { message: 'Apa itu esports?' })).text);
+  assert.equal(events.at(-1).event, 'error');
+  assert.ok(!events.some((event) => event.event === 'done'));
+});

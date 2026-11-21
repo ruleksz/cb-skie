@@ -51,6 +51,13 @@ export function createMemoryRepo({ chunks = [] } = {}) {
       messages.push({ id, conversationId, role, content, sources: sources ?? [], createdAt: new Date() });
       return id;
     },
+    async deleteLastTurn(conversationId, content) {
+      const last = messages.findLast((item) => item.conversationId === conversationId && item.role === 'user');
+      if (!last || last.content !== content) return false;
+      const kept = messages.filter((item) => item.conversationId !== conversationId || item.id < last.id);
+      messages.splice(0, messages.length, ...kept);
+      return true;
+    },
     async getMessages(conversationId, { limit } = {}) {
       const all = messages.filter((message) => message.conversationId === conversationId);
       return limit ? all.slice(-limit) : all;
