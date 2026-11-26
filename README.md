@@ -52,6 +52,131 @@ Satu berkas = satu dokumen; judul diambil dari heading `#` pertama dan tiap bagi
 
 Jika mengganti `EMBEDDING_MODEL` atau `EMBEDDING_PROVIDER`, jalankan `npm run ingest -- --force` dan sesuaikan `RAG_MIN_SCORE` (nilai bawaan 0.81 dikalibrasi untuk model bawaan).
 
+## Arsitektur
+
+```mermaid
+flowchart TB
+    subgraph Client["🖥️ Client (React + Vite)"]
+        UI["App.jsx\nSidebar · Composer · Message"]
+        Hooks["useChat · useTheme"]
+        API["lib/api.js\nHTTP + SSE"]
+        UI --> Hooks --> API
+    end
+
+    subgraph Server["⚙️ Server (Express 5)"]
+        Routes["Routes\n/api/chat · /api/conversations · /api/health"]
+        subgraph RAG["RAG Pipeline"]
+            Rewrite["Prompt Rewriter\n(pertanyaan lanjutan → mandiri)"]
+            Retriever["Retriever\n(Hybrid Search)"]
+            Embedder["Embedder\n(multilingual-e5-small)"]
+            Chunker["Chunker\n(Markdown → potongan)"]
+            Similarity["Similarity\n(Cosine + RRF)"]
+            PromptBuilder["Prompt Builder\n(konteks + system prompt)"]
+        end
+        LLM["LLM Client\n(OpenAI-compatible API)"]
+        DB["Repository\n(MySQL queries)"]
+    end
+
+    subgraph External["☁️ Layanan Eksternal"]
+        LLMProvider["LLM Provider\nGemini / OpenAI / Groq / Custom"]
+    end
+
+    subgraph Storage["🗄️ MySQL 8"]
+        Documents["documents\n(source, hash, model)"]
+        Chunks["chunks\n(content, embedding, FULLTEXT)"]
+        Conversations["conversations\n(client_id, title)"]
+        Messages["messages\n(role, content, sources)"]
+    end
+
+    subgraph Knowledge["📚 Knowledge Base"]
+        MD["server/knowledge/*.md\n(Markdown esports)"]
+    end
+
+    API -- "POST /api/chat\n(SSE stream)" --> Routes
+    API -- "GET/DELETE\n/api/conversations" --> Routes
+
+    Routes --> Rewrite
+    Rewrite --> LLM
+    Routes --> Retriever
+    Retriever --> Embedder
+    Retriever --> Similarity
+    Retriever --> DB
+    Routes --> PromptBuilder
+    PromptBuilder --> LLM
+
+    LLM -- "Chat Completions\n(streaming)" --> LLMProvider
+
+    DB --> Documents
+    DB --> Chunks
+    DB --> Conversations
+    DB --> Messages
+
+    MD -- "npm run ingest" --> Chunker
+    Chunker --> Embedder
+    Embedder --> DB
+
+    style Client fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style Server fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    style RAG fill:#fde68a,stroke:#d97706,color:#78350f
+    style External fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style Storage fill:#d1fae5,stroke:#10b981,color:#064e3b
+    style Knowledge fill:#fce7f3,stroke:#ec4899,color:#831843
+```
+
+### Alur Data
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 Pengguna
+    participant C as 🖥️ Client
+    participant S as ⚙️ Server
+    participant R as 🔍 Retriever
+    participant E as 🧮 Embedder
+    participant DB as 🗄️ MySQL
+    participant LLM as ☁️ LLM
+
+    U->>C: Ketik pertanyaan
+    C->>S: POST /api/chat (SSE)
+    S->>DB: Ambil riwayat percakapan
+
+    alt Pertanyaan lanjutan
+        S->>LLM: Tulis ulang jadi pertanyaan mandiri
+        LLM-->>S: Pertanyaan mandiri
+    end
+
+    S->>E: Embed pertanyaan
+    E-->>S: Query vector
+    S->>DB: FULLTEXT keyword search
+    S->>R: Hybrid search (Cosine + RRF)
+    R-->>S: Top-K potongan relevan
+
+    S-->>C: SSE event: meta (sources)
+    S->>LLM: Stream chat (konteks + pertanyaan)
+
+    loop Setiap token
+        LLM-->>S: Token
+        S-->>C: SSE event: token
+        C-->>U: Render Markdown real-time
+    end
+
+    S->>DB: Simpan jawaban + sumber
+    S-->>C: SSE event: done
+```
+
+### Alur Ingest
+
+```mermaid
+flowchart LR
+    A["📄 Markdown\n(server/knowledge/)"] --> B["✂️ Chunker\n(pecah per heading)"]
+    B --> C["🧮 Embedder\n(multilingual-e5-small)"]
+    C --> D["🗄️ MySQL\n(documents + chunks)"]
+
+    style A fill:#fce7f3,stroke:#ec4899,color:#831843
+    style B fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    style C fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
+    style D fill:#d1fae5,stroke:#10b981,color:#064e3b
+```
+
 ## Cara kerja
 
 1. **Ingest** — Markdown dipecah per heading (maks. ±1200 karakter), tiap potongan di-embed, lalu disimpan di tabel `chunks` (embedding sebagai JSON, isi diindeks FULLTEXT).

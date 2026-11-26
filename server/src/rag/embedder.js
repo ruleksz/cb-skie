@@ -1,10 +1,12 @@
-import path from 'node:path';
-import { serverRoot } from '../config.js';
-import { normalize } from './similarity.js';
+import path from "node:path";
+import { serverRoot } from "../config.js";
+import { normalize } from "./similarity.js";
 
 // Model keluarga E5 dilatih dengan awalan berbeda untuk pertanyaan dan dokumen.
 function prefixesFor(model) {
-  return /e5/i.test(model) ? { query: 'query: ', passage: 'passage: ' } : { query: '', passage: '' };
+  return /e5/i.test(model)
+    ? { query: "query: ", passage: "passage: " }
+    : { query: "", passage: "" };
 }
 
 function createLocalEmbedder({ model }) {
@@ -14,9 +16,9 @@ function createLocalEmbedder({ model }) {
   async function getExtractor() {
     if (!extractorPromise) {
       extractorPromise = (async () => {
-        const { pipeline, env } = await import('@huggingface/transformers');
-        env.cacheDir = path.join(serverRoot, '.cache');
-        return pipeline('feature-extraction', model, { dtype: 'q8' });
+        const { pipeline, env } = await import("@huggingface/transformers");
+        env.cacheDir = path.join(serverRoot, ".cache");
+        return pipeline("feature-extraction", model, { dtype: "q8" });
       })();
       extractorPromise.catch(() => {
         extractorPromise = undefined;
@@ -27,7 +29,7 @@ function createLocalEmbedder({ model }) {
 
   async function embed(texts) {
     const extractor = await getExtractor();
-    const output = await extractor(texts, { pooling: 'mean', normalize: true });
+    const output = await extractor(texts, { pooling: "mean", normalize: true });
     return output.tolist();
   }
 
@@ -35,19 +37,23 @@ function createLocalEmbedder({ model }) {
     model,
     warmup: () => getExtractor().then(() => undefined),
     embedQuery: async (text) => (await embed([prefixes.query + text]))[0],
-    embedDocuments: (texts) => embed(texts.map((text) => prefixes.passage + text)),
+    embedDocuments: (texts) =>
+      embed(texts.map((text) => prefixes.passage + text)),
   };
 }
 
 function createApiEmbedder({ model, baseUrl, apiKey }) {
-  if (!baseUrl) throw new Error('EMBEDDING_BASE_URL wajib diisi untuk EMBEDDING_PROVIDER=api');
+  if (!baseUrl)
+    throw new Error(
+      "EMBEDDING_BASE_URL wajib diisi untuk EMBEDDING_PROVIDER=api",
+    );
   const prefixes = prefixesFor(model);
 
   async function embed(texts) {
     const response = await fetch(`${baseUrl}/embeddings`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({ model, input: texts }),
@@ -67,15 +73,16 @@ function createApiEmbedder({ model, baseUrl, apiKey }) {
     model,
     warmup: async () => {},
     embedQuery: async (text) => (await embed([prefixes.query + text]))[0],
-    embedDocuments: (texts) => embed(texts.map((text) => prefixes.passage + text)),
+    embedDocuments: (texts) =>
+      embed(texts.map((text) => prefixes.passage + text)),
   };
 }
 
 export function createEmbedder(embeddingConfig) {
   switch (embeddingConfig.provider) {
-    case 'local':
+    case "local":
       return createLocalEmbedder(embeddingConfig);
-    case 'api':
+    case "api":
       return createApiEmbedder(embeddingConfig);
     default:
       throw new Error(

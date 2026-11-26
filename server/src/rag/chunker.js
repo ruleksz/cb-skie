@@ -4,11 +4,11 @@ function splitLongParagraph(paragraph, maxChars) {
   // Titik di dalam angka atau singkatan ("10.000", "No.1") bukan akhir kalimat: hanya pecah bila diikuti spasi.
   const sentences = paragraph.split(/(?<=[.!?]\s+)/);
   const parts = [];
-  let current = '';
+  let current = "";
   for (const sentence of sentences) {
     if (current && current.length + sentence.length > maxChars) {
       parts.push(current.trim());
-      current = '';
+      current = "";
     }
     current += sentence;
     while (current.length > maxChars) {
@@ -22,13 +22,16 @@ function splitLongParagraph(paragraph, maxChars) {
 
 function packParagraphs(paragraphs, maxChars) {
   const chunks = [];
-  let current = '';
+  let current = "";
   for (const paragraph of paragraphs) {
-    const pieces = paragraph.length > maxChars ? splitLongParagraph(paragraph, maxChars) : [paragraph];
+    const pieces =
+      paragraph.length > maxChars
+        ? splitLongParagraph(paragraph, maxChars)
+        : [paragraph];
     for (const piece of pieces) {
       if (current && current.length + piece.length + 2 > maxChars) {
         chunks.push(current);
-        current = '';
+        current = "";
       }
       current = current ? `${current}\n\n${piece}` : piece;
     }
@@ -41,12 +44,15 @@ function packParagraphs(paragraphs, maxChars) {
  * Memecah dokumen Markdown menjadi potongan per bagian (heading), lalu per paragraf
  * bila satu bagian lebih panjang dari `maxChars`.
  */
-export function chunkMarkdown(markdown, { maxChars = 1200, fallbackTitle = 'Tanpa judul' } = {}) {
-  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
-  let title = '';
+export function chunkMarkdown(
+  markdown,
+  { maxChars = 1200, fallbackTitle = "Tanpa judul" } = {},
+) {
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  let title = "";
   const sections = [];
   const path = [];
-  let current = { heading: '', lines: [] };
+  let current = { heading: "", lines: [] };
   let inCodeFence = false;
 
   for (const line of lines) {
@@ -65,14 +71,14 @@ export function chunkMarkdown(markdown, { maxChars = 1200, fallbackTitle = 'Tanp
     sections.push(current);
     path.length = Math.max(0, level - 2);
     path[Math.max(0, level - 2)] = text;
-    current = { heading: path.filter(Boolean).join(' > '), lines: [] };
+    current = { heading: path.filter(Boolean).join(" > "), lines: [] };
   }
   sections.push(current);
 
   const chunks = [];
   for (const section of sections) {
     const paragraphs = section.lines
-      .join('\n')
+      .join("\n")
       .split(/\n{2,}/)
       .map((paragraph) => paragraph.trim())
       .filter(Boolean);
@@ -86,6 +92,6 @@ export function chunkMarkdown(markdown, { maxChars = 1200, fallbackTitle = 'Tanp
 
 /** Teks yang di-embed: judul dan heading ikut agar potongan pendek tetap punya konteks. */
 export function chunkToEmbeddingText(title, chunk) {
-  const label = [title, chunk.heading].filter(Boolean).join(' — ');
+  const label = [title, chunk.heading].filter(Boolean).join(" — ");
   return `${label}\n${chunk.content}`;
 }
